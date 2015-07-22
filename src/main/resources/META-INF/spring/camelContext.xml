@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configures the Camel Context-->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+    <bean name="myExceptionThrower" class="nz.section6.camel.processor.MyExceptionThrower">
+        <property name="msg" value="My Illegal Argument"/>
+    </bean>
+
+    <bean id="bridgePropertyPlaceholder" class="org.apache.camel.spring.spi.BridgePropertyPlaceholderConfigurer">
+        <property name="location" value="classpath:etc/nz.section6.config.properties"/>
+    </bean>
+
+    <camelContext id="stopOnException"
+                  xmlns="http://camel.apache.org/schema/spring">
+        <route id="fuseToAmq" shutdownRunningTask="CompleteAllTasks">
+            <from uri="amq1:queue:operationqueue"/>
+            <onException>
+                <exception>javax.jms.ResourceAllocationException</exception>
+                <redeliveryPolicy maximumRedeliveries="3" redeliveryDelay="5000" useExponentialBackOff="true"
+                                  backOffMultiplier="2"/>
+                <handled>
+                    <constant>true</constant>
+                </handled>
+                <log message="************ Stopping fuseToAmq route due to producer flow control ************"/>
+                <multicast>
+                    <to uri="direct:reprocessRoute"/>
+                    <to uri="direct:stopRoute"/>
+                </multicast>
+            </onException>
+            <onException>
+                <exception>java.lang.IllegalArgumentException</exception>
+                <handled>
+                    <constant>true</constant>
+                </handled>
+                <log message="************ Received an IllegalArgumentException ************"/>
+            </onException>
+            <choice>
+                <when>
+                    <simple>${body} contains 'test'</simple>
+                    <to uri="amq2:queue:processqueue"/>
+                </when>
+                <otherwise>
+                    <process ref="myExceptionThrower"/>
+                </otherwise>
+            </choice>
+        </route>
+
+        <route id="reprocessRoute">
+            <from uri="direct:reprocessRoute"/>
+            <to uri="amq1:queue:reprocessqueue"/>
+        </route>
+
+        <route id="stopRoute">
+            <from uri="direct:stopRoute"/>
+            <to uri="controlbus:route?async=true&amp;routeId=fuseToAmq&amp;action=stop"/>
+        </route>
+
+    </camelContext>
+
+    <bean id="amq1"
+          class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="brokerURL" value="${amq1.broker.url}"/>
+        <property name="userName" value="${amq1.broker.userName}"/>
+        <property name="password" value="${amq1.broker.password}"/>
+    </bean>
+    <bean id="amq2"
+          class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="brokerURL" value="${amq2.broker.url}"/>
+        <property name="userName" value="${amq2.broker.userName}"/>
+        <property name="password" value="${amq2.broker.password}"/>
+    </bean>
+
+</beans>
