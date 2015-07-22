@@ -19,3 +19,4 @@ For testing this setup, the configuration used was:
  * Run the A-MQ extras sendmessages with about 10 messages.
  * Note that the `fuseToAmq` route will stop when Producer Flow Control is triggered
 
+### Pictorial representation of flow
