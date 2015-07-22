@@ -20,3 +20,6 @@ For testing this setup, the configuration used was:
  * Note that the `fuseToAmq` route will stop when Producer Flow Control is triggered
 
 ### Pictorial representation of flow
+![Normal Flow](src/images/normalflow.png)
+
+![Producer Flow Control Triggered](src/images/producerflowcontroltriggered.png)
